@@ -197,6 +197,20 @@ Quote: "${inputs.quote || ""}"`;
   return prompt;
 }
 
+function buildImagePrompt(inputs) {
+  const textOverlay = inputs.mainText || `Happy ${inputs.event} - ${inputs.name}`;
+  const quotePart = inputs.quote ? ` with quote: "${inputs.quote}"` : "";
+
+  return `${inputs.artStyle || "cinematic poster style"} poster for ${inputs.event}. ` +
+    `${inputs.name} ${inputs.pose || "standing confidently"}, ` +
+    `${inputs.expression || "confident expression"}, ` +
+    `wearing ${inputs.clothingStyle || "formal attire"}. ` +
+    `Background: ${inputs.background || "professional backdrop"}. ` +
+    `Mood: ${inputs.mood || "inspirational"}. ` +
+    `Text overlay: "${textOverlay}"${quotePart}. ` +
+    `High quality, detailed, professional design.`;
+}
+
 // --- Routes ---
 app.get("/api", (req, res) => {
   res.json({
@@ -253,7 +267,7 @@ app.post("/generate", async (req, res) => {
       return friendlyResponse(res, 400, "invalid_preset");
     }
 
-    const prompt = buildPrompt({
+    const imagePrompt = buildImagePrompt({
       name,
       event,
       date,
@@ -264,31 +278,53 @@ app.post("/generate", async (req, res) => {
       artStyle: artStyle || style.artStyle,
       mood: mood || style.mood,
       mainText: mainText || `Happy ${event} - ${name}`,
-      pointsList,
       shortMessage,
       quote,
-      overlayPhoto,
     });
+
+    let imageUrl = null;
+    let generatedText = null;
+
+    const stabilityKey = process.env.STABILITY_API_KEY;
+
+    if (stabilityKey) {
+      const formData = new URLSearchParams();
+      formData.append("prompt", imagePrompt);
+      formData.append("output_format", "png");
+
+      const stabilityResp = await fetch(
+        "https://api.stability.ai/v2beta/stable-image/generate/sd3",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${stabilityKey}`,
+            "Accept": "image/*",
+          },
+          body: formData,
+        }
+      );
+
+      if (stabilityResp.ok) {
+        const buffer = await stabilityResp.buffer();
+        const base64 = buffer.toString("base64");
+        imageUrl = `data:image/png;base64,${base64}`;
+      } else {
+        const errText = await stabilityResp.text();
+        console.error("Stability error:", errText);
+      }
+    }
+
+    if (!imageUrl) {
+      const encodedPrompt = encodeURIComponent(imagePrompt);
+      imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+    }
 
     const messages = [
       {
         role: "user",
-        content: [{ type: "text", text: prompt }],
+        content: `Summarize this poster in 2-3 sentences: ${imagePrompt}`,
       },
     ];
-
-    if (photo)
-      messages[0].content.push({
-        type: "image_url",
-        image_url: { url: photo },
-      });
-    if (logo)
-      messages[0].content.push({ type: "image_url", image_url: { url: logo } });
-    if (overlayPhoto)
-      messages[0].content.push({
-        type: "image_url",
-        image_url: { url: overlayPhoto },
-      });
 
     const apiResponse = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -301,43 +337,17 @@ app.post("/generate", async (req, res) => {
           "X-Title": "PosterAI",
         },
         body: JSON.stringify({
-          model: "openrouter/free",
+          model: "google/gemini-2.5-flash-preview",
           messages,
-          max_tokens: 4096,
+          max_tokens: 200,
         }),
-      },
+      }
     );
 
-    if (!apiResponse.ok) {
-      const errText = await apiResponse.text();
-      console.error("OpenRouter error:", errText);
-
-      if (dbConnected) {
-        await Log.create({
-          sessionId,
-          name,
-          event,
-          prompt,
-          generatedContent: null,
-          model: null,
-          success: false,
-          errorMessage: errText,
-          ip: req.ip,
-        }).catch(() => {});
-      }
-
-      return friendlyResponse(
-        res,
-        apiResponse.status >= 500 ? 502 : apiResponse.status,
-        "api_error",
-        {
-          details: process.env.NODE_ENV === "development" ? errText : undefined,
-        },
-      );
+    if (apiResponse.ok) {
+      const data = await apiResponse.json();
+      generatedText = data.choices?.[0]?.message?.content;
     }
-
-    const data = await apiResponse.json();
-    const result = data.choices?.[0]?.message?.content;
 
     if (dbConnected) {
       const saveOps = [];
@@ -374,9 +384,9 @@ app.post("/generate", async (req, res) => {
           sessionId,
           name,
           event,
-          prompt,
-          generatedContent: result,
-          model: data.model,
+          prompt: imagePrompt,
+          generatedContent: imageUrl,
+          model: stabilityKey ? "stability-ai" : "pollinations",
           success: true,
           errorMessage: null,
           ip: req.ip,
@@ -393,9 +403,10 @@ app.post("/generate", async (req, res) => {
       name,
       event,
       date,
-      prompt,
-      generatedContent: result,
-      model: data.model,
+      prompt: imagePrompt,
+      imageUrl,
+      description: generatedText,
+      model: stabilityKey ? "stability-ai" : "pollinations",
       preset: preset || null,
     });
   } catch (err) {

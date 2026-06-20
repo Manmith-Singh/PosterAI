@@ -430,8 +430,14 @@
 
     <div class="result" id="result">
       <div class="result-success" id="resultSuccess"></div>
+      <div id="resultImage" style="display:none;text-align:center;margin:15px 0;">
+        <img id="posterImg" src="" alt="Generated Poster" style="max-width:100%;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.4);">
+      </div>
       <div class="result-content" id="resultContent"></div>
-      <button class="btn-new" onclick="resetForm()">Create Another Poster</button>
+      <div style="margin-top:15px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn-new" id="downloadBtn" onclick="downloadPoster()" style="display:none;">Download Poster</button>
+        <button class="btn-new" onclick="resetForm()">Create Another Poster</button>
+      </div>
     </div>
 
     <footer>
@@ -546,7 +552,18 @@
         }
 
         document.getElementById("resultSuccess").textContent = data.friendly;
-        document.getElementById("resultContent").textContent = data.generatedContent;
+
+        const imgEl = document.getElementById("resultImage");
+        const posterImg = document.getElementById("posterImg");
+        if (data.imageUrl) {
+          posterImg.src = data.imageUrl;
+          imgEl.style.display = "block";
+          document.getElementById("downloadBtn").style.display = "inline-block";
+        } else {
+          imgEl.style.display = "none";
+        }
+
+        document.getElementById("resultContent").textContent = data.description || data.generatedContent || "";
         document.getElementById("result").classList.add("show");
       } catch (err) {
         document.getElementById("loading").classList.remove("show");
@@ -604,6 +621,9 @@
       document.getElementById("error").classList.remove("show");
       document.getElementById("retrySection").style.display = "none";
       document.getElementById("generateBtn").disabled = false;
+      document.getElementById("resultImage").style.display = "none";
+      document.getElementById("downloadBtn").style.display = "none";
+      document.getElementById("posterImg").src = "";
       document.querySelectorAll("input:not([type=file])").forEach(i => i.value = "");
       document.querySelectorAll(".upload-area").forEach(a => {
         a.classList.remove("has-file");
@@ -612,6 +632,15 @@
       });
       selectedPreset = null;
       document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+    }
+
+    function downloadPoster() {
+      const img = document.getElementById("posterImg");
+      if (!img.src) return;
+      const a = document.createElement("a");
+      a.href = img.src;
+      a.download = "poster.png";
+      a.click();
     }
 
     renderPresets();
