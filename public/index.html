@@ -262,6 +262,61 @@
       font-weight: 500;
     }
 
+    .retry-countdown {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .countdown-ring {
+      width: 44px;
+      height: 44px;
+      position: relative;
+    }
+
+    .countdown-ring svg {
+      transform: rotate(-90deg);
+      width: 44px;
+      height: 44px;
+    }
+
+    .countdown-ring .bg {
+      fill: none;
+      stroke: rgba(255,71,87,0.2);
+      stroke-width: 3;
+    }
+
+    .countdown-ring .progress {
+      fill: none;
+      stroke: #ff4757;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 113;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear;
+    }
+
+    .countdown-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #ff4757;
+    }
+
+    .retry-msg {
+      font-size: 0.9rem;
+      color: #ccc;
+    }
+
+    .retry-msg strong {
+      color: #ff4757;
+    }
+
     footer {
       text-align: center;
       padding: 30px 0;
@@ -361,6 +416,16 @@
 
     <div class="error-msg" id="error">
       <div class="friendly" id="errorText"></div>
+      <div class="retry-countdown" id="retrySection" style="display:none;">
+        <div class="countdown-ring">
+          <svg viewBox="0 0 40 40">
+            <circle class="bg" cx="20" cy="20" r="18"></circle>
+            <circle class="progress" id="countdownCircle" cx="20" cy="20" r="18"></circle>
+          </svg>
+          <div class="countdown-text" id="countdownNum">25</div>
+        </div>
+        <div class="retry-msg">You can try again in <strong id="retrySec">25</strong> seconds</div>
+      </div>
     </div>
 
     <div class="result" id="result">
@@ -487,19 +552,58 @@
         document.getElementById("loading").classList.remove("show");
         showError("Network error. Please check your connection and try again.");
       }
-
-      btn.disabled = false;
     }
 
     function showError(msg) {
       document.getElementById("loading").classList.remove("show");
       document.getElementById("errorText").textContent = msg;
       document.getElementById("error").classList.add("show");
+      startRetryCountdown();
+    }
+
+    let retryTimer = null;
+
+    function startRetryCountdown() {
+      const btn = document.getElementById("generateBtn");
+      const section = document.getElementById("retrySection");
+      const circle = document.getElementById("countdownCircle");
+      const numEl = document.getElementById("countdownNum");
+      const secEl = document.getElementById("retrySec");
+      const circumference = 2 * Math.PI * 18;
+
+      btn.disabled = true;
+      section.style.display = "flex";
+      circle.style.strokeDashoffset = "0";
+
+      let remaining = 25;
+      numEl.textContent = remaining;
+      secEl.textContent = remaining;
+
+      if (retryTimer) clearInterval(retryTimer);
+
+      retryTimer = setInterval(() => {
+        remaining--;
+        numEl.textContent = remaining;
+        secEl.textContent = remaining;
+
+        const offset = circumference * (1 - remaining / 25);
+        circle.style.strokeDashoffset = offset;
+
+        if (remaining <= 0) {
+          clearInterval(retryTimer);
+          retryTimer = null;
+          btn.disabled = false;
+          section.style.display = "none";
+        }
+      }, 1000);
     }
 
     function resetForm() {
+      if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
       document.getElementById("result").classList.remove("show");
       document.getElementById("error").classList.remove("show");
+      document.getElementById("retrySection").style.display = "none";
+      document.getElementById("generateBtn").disabled = false;
       document.querySelectorAll("input:not([type=file])").forEach(i => i.value = "");
       document.querySelectorAll(".upload-area").forEach(a => {
         a.classList.remove("has-file");
