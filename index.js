@@ -16,8 +16,12 @@ const MONGODB_URI = process.env.MONGODB_URI;
 let dbConnected = false;
 
 if (MONGODB_URI) {
-  mongoose.connect(MONGODB_URI)
-    .then(() => { dbConnected = true; console.log("MongoDB connected"); })
+  mongoose
+    .connect(MONGODB_URI)
+    .then(() => {
+      dbConnected = true;
+      console.log("MongoDB connected");
+    })
     .catch((err) => console.error("MongoDB connection error:", err.message));
 }
 
@@ -65,7 +69,8 @@ const limiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 20,
   message: {
-    friendly: "Whoa, you're on a roll! You've hit the daily limit of 20 poster generations. Come back tomorrow for more creative designs!",
+    friendly:
+      "Whoa, you're on a roll! You've hit the daily limit of 20 poster generations. Come back tomorrow for more creative designs!",
     error: "Rate limit exceeded",
     retryAfter: "Try again in 24 hours.",
   },
@@ -134,19 +139,30 @@ const PRESETS = {
 
 // --- Friendly Error Messages ---
 const FRIENDLY_ERRORS = {
-  missing_fields: "Oops! It looks like you forgot to include a name or event. Please provide those so we can create your poster!",
-  api_key_missing: "Hmm, our AI service isn't configured yet. Please let the admin know so we can fix this quickly!",
-  api_error: "Our AI artist is taking a quick break. Please try again in a moment - we promise it's worth the wait!",
-  server_error: "Something went wrong on our end. Don't worry, we're looking into it! Please try again shortly.",
-  generation_failed: "We couldn't generate your poster this time. Try tweaking your inputs or using a different preset - sometimes a small change makes all the difference!",
-  rate_limited: "You've been creating a lot of posters! Take a break and come back tomorrow for more.",
-  invalid_preset: "That preset style isn't available yet. Check out our available styles: " + Object.keys(PRESETS).join(", "),
-  db_error: "We had a little trouble saving your session, but your poster should still generate fine!",
+  missing_fields:
+    "Oops! It looks like you forgot to include a name or event. Please provide those so we can create your poster!",
+  api_key_missing:
+    "Hmm, our AI service isn't configured yet. Please let the admin know so we can fix this quickly!",
+  api_error:
+    "Our AI artist is taking a quick break. Please try again in a moment - we promise it's worth the wait!",
+  server_error:
+    "Something went wrong on our end. Don't worry, we're looking into it! Please try again shortly.",
+  generation_failed:
+    "We couldn't generate your poster this time. Try tweaking your inputs or using a different preset - sometimes a small change makes all the difference!",
+  rate_limited:
+    "You've been creating a lot of posters! Take a break and come back tomorrow for more.",
+  invalid_preset:
+    "That preset style isn't available yet. Check out our available styles: " +
+    Object.keys(PRESETS).join(", "),
+  db_error:
+    "We had a little trouble saving your session, but your poster should still generate fine!",
 };
 
 function friendlyResponse(res, status, errorKey, extra = {}) {
   return res.status(status).json({
-    friendly: FRIENDLY_ERRORS[errorKey] || "Something unexpected happened. Please try again!",
+    friendly:
+      FRIENDLY_ERRORS[errorKey] ||
+      "Something unexpected happened. Please try again!",
     error: errorKey,
     ...extra,
   });
@@ -195,13 +211,28 @@ app.get("/presets", (req, res) => {
 });
 
 app.post("/generate", async (req, res) => {
-  const sessionId = req.headers["x-session-id"] || `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const sessionId =
+    req.headers["x-session-id"] ||
+    `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
   try {
     const {
-      name, event, date, photo, logo, overlayPhoto,
-      pose, expression, clothingStyle, background,
-      artStyle, mood, mainText, pointsList, shortMessage, quote,
+      name,
+      event,
+      date,
+      photo,
+      logo,
+      overlayPhoto,
+      pose,
+      expression,
+      clothingStyle,
+      background,
+      artStyle,
+      mood,
+      mainText,
+      pointsList,
+      shortMessage,
+      quote,
       preset,
     } = req.body;
 
@@ -209,7 +240,8 @@ app.post("/generate", async (req, res) => {
       return friendlyResponse(res, 400, "missing_fields");
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENCODE_API_KEY;
+    const apiKey =
+      process.env.OPENROUTER_API_KEY || process.env.OPENCODE_API_KEY;
     if (!apiKey) {
       return friendlyResponse(res, 500, "api_key_missing");
     }
@@ -222,7 +254,9 @@ app.post("/generate", async (req, res) => {
     }
 
     const prompt = buildPrompt({
-      name, event, date,
+      name,
+      event,
+      date,
       pose: pose || style.pose,
       expression: expression || style.expression,
       clothingStyle: clothingStyle || style.clothingStyle,
@@ -230,32 +264,49 @@ app.post("/generate", async (req, res) => {
       artStyle: artStyle || style.artStyle,
       mood: mood || style.mood,
       mainText: mainText || `Happy ${event} - ${name}`,
-      pointsList, shortMessage, quote, overlayPhoto,
+      pointsList,
+      shortMessage,
+      quote,
+      overlayPhoto,
     });
 
-    const messages = [{
-      role: "user",
-      content: [{ type: "text", text: prompt }],
-    }];
-
-    if (photo) messages[0].content.push({ type: "image_url", image_url: { url: photo } });
-    if (logo) messages[0].content.push({ type: "image_url", image_url: { url: logo } });
-    if (overlayPhoto) messages[0].content.push({ type: "image_url", image_url: { url: overlayPhoto } });
-
-    const apiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://posterai.vercel.app",
-        "X-Title": "PosterAI",
+    const messages = [
+      {
+        role: "user",
+        content: [{ type: "text", text: prompt }],
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-preview",
-        messages,
-        max_tokens: 4096,
-      }),
-    });
+    ];
+
+    if (photo)
+      messages[0].content.push({
+        type: "image_url",
+        image_url: { url: photo },
+      });
+    if (logo)
+      messages[0].content.push({ type: "image_url", image_url: { url: logo } });
+    if (overlayPhoto)
+      messages[0].content.push({
+        type: "image_url",
+        image_url: { url: overlayPhoto },
+      });
+
+    const apiResponse = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://posterai.vercel.app",
+          "X-Title": "PosterAI",
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages,
+          max_tokens: 4096,
+        }),
+      },
+    );
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text();
@@ -263,16 +314,26 @@ app.post("/generate", async (req, res) => {
 
       if (dbConnected) {
         await Log.create({
-          sessionId, name, event, prompt,
-          generatedContent: null, model: null,
-          success: false, errorMessage: errText,
+          sessionId,
+          name,
+          event,
+          prompt,
+          generatedContent: null,
+          model: null,
+          success: false,
+          errorMessage: errText,
           ip: req.ip,
         }).catch(() => {});
       }
 
-      return friendlyResponse(res, apiResponse.status >= 500 ? 502 : apiResponse.status, "api_error", {
-        details: process.env.NODE_ENV === "development" ? errText : undefined,
-      });
+      return friendlyResponse(
+        res,
+        apiResponse.status >= 500 ? 502 : apiResponse.status,
+        "api_error",
+        {
+          details: process.env.NODE_ENV === "development" ? errText : undefined,
+        },
+      );
     }
 
     const data = await apiResponse.json();
@@ -281,24 +342,46 @@ app.post("/generate", async (req, res) => {
     if (dbConnected) {
       const saveOps = [];
 
-      saveOps.push(Session.findOneAndUpdate(
-        { sessionId },
-        {
-          sessionId, name, event, date, photo, logo, overlayPhoto,
-          pose: pose || style.pose, expression: expression || style.expression,
-          clothingStyle: clothingStyle || style.clothingStyle,
-          background: background || style.background,
-          artStyle: artStyle || style.artStyle, mood: mood || style.mood,
-          mainText, pointsList, shortMessage, quote, preset,
-        },
-        { upsert: true, new: true }
-      ).catch((err) => console.error("Session save error:", err.message)));
+      saveOps.push(
+        Session.findOneAndUpdate(
+          { sessionId },
+          {
+            sessionId,
+            name,
+            event,
+            date,
+            photo,
+            logo,
+            overlayPhoto,
+            pose: pose || style.pose,
+            expression: expression || style.expression,
+            clothingStyle: clothingStyle || style.clothingStyle,
+            background: background || style.background,
+            artStyle: artStyle || style.artStyle,
+            mood: mood || style.mood,
+            mainText,
+            pointsList,
+            shortMessage,
+            quote,
+            preset,
+          },
+          { upsert: true, new: true },
+        ).catch((err) => console.error("Session save error:", err.message)),
+      );
 
-      saveOps.push(Log.create({
-        sessionId, name, event, prompt,
-        generatedContent: result, model: data.model,
-        success: true, errorMessage: null, ip: req.ip,
-      }).catch((err) => console.error("Log save error:", err.message)));
+      saveOps.push(
+        Log.create({
+          sessionId,
+          name,
+          event,
+          prompt,
+          generatedContent: result,
+          model: data.model,
+          success: true,
+          errorMessage: null,
+          ip: req.ip,
+        }).catch((err) => console.error("Log save error:", err.message)),
+      );
 
       await Promise.all(saveOps);
     }
@@ -307,7 +390,9 @@ app.post("/generate", async (req, res) => {
       success: true,
       friendly: `Poster generated successfully for ${name}'s ${event}! Hope you love it.`,
       sessionId,
-      name, event, date,
+      name,
+      event,
+      date,
       prompt,
       generatedContent: result,
       model: data.model,
@@ -318,9 +403,15 @@ app.post("/generate", async (req, res) => {
 
     if (dbConnected) {
       await Log.create({
-        sessionId, name: req.body.name, event: req.body.event,
-        prompt: null, generatedContent: null, model: null,
-        success: false, errorMessage: err.message, ip: req.ip,
+        sessionId,
+        name: req.body.name,
+        event: req.body.event,
+        prompt: null,
+        generatedContent: null,
+        model: null,
+        success: false,
+        errorMessage: err.message,
+        ip: req.ip,
       }).catch(() => {});
     }
 
@@ -336,7 +427,9 @@ app.get("/session/:sessionId", async (req, res) => {
   try {
     const session = await Session.findOne({ sessionId: req.params.sessionId });
     if (!session) {
-      return res.status(404).json({ friendly: "No session found with that ID. Double-check and try again!" });
+      return res.status(404).json({
+        friendly: "No session found with that ID. Double-check and try again!",
+      });
     }
     res.json({ success: true, session });
   } catch (err) {
