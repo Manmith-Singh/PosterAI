@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PosterAI - AI Poster Generator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      padding: 40px 0 20px;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #f093fb, #f5576c, #fda085);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: #aaa;
+      font-size: 1.1rem;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    .card h2 {
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+      color: #f5576c;
+    }
+
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .preset-btn {
+      padding: 12px 8px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.3s;
+      text-align: center;
+    }
+
+    .preset-btn:hover {
+      border-color: #f5576c;
+      background: rgba(245,87,108,0.15);
+    }
+
+    .preset-btn.active {
+      border-color: #f5576c;
+      background: rgba(245,87,108,0.25);
+      box-shadow: 0 0 15px rgba(245,87,108,0.3);
+    }
+
+    .preset-btn .icon { font-size: 1.5rem; display: block; margin-bottom: 4px; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group.full { grid-column: 1 / -1; }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: #ccc;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.07);
+      color: #fff;
+      font-size: 0.95rem;
+      transition: border 0.3s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #f5576c;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    select option { background: #1a1a2e; color: #fff; }
+
+    .upload-area {
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .upload-area:hover {
+      border-color: #f5576c;
+      background: rgba(245,87,108,0.05);
+    }
+
+    .upload-area.has-file {
+      border-color: #4ecdc4;
+      background: rgba(78,205,196,0.1);
+    }
+
+    .upload-area input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-area .icon { font-size: 2rem; margin-bottom: 8px; }
+    .upload-area .text { color: #aaa; font-size: 0.9rem; }
+    .upload-area .filename { color: #4ecdc4; font-weight: 600; margin-top: 8px; }
+
+    .btn-generate {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f093fb, #f5576c, #fda085);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.3s;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-generate:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(245,87,108,0.4);
+    }
+
+    .btn-generate:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .loading.show { display: block; }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255,255,255,0.1);
+      border-top-color: #f5576c;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .result {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .result.show { display: block; }
+
+    .result-content {
+      background: rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 15px;
+      text-align: left;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #ddd;
+    }
+
+    .result-success {
+      color: #4ecdc4;
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .btn-new {
+      margin-top: 15px;
+      padding: 12px 30px;
+      border: 2px solid #f5576c;
+      border-radius: 10px;
+      background: transparent;
+      color: #f5576c;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-new:hover {
+      background: rgba(245,87,108,0.15);
+    }
+
+    .error-msg {
+      display: none;
+      background: rgba(255,71,87,0.15);
+      border: 1px solid rgba(255,71,87,0.3);
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 15px;
+      color: #ff4757;
+    }
+
+    .error-msg.show { display: block; }
+
+    .error-msg .friendly {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    footer {
+      text-align: center;
+      padding: 30px 0;
+      color: #666;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 600px) {
+      .form-row { grid-template-columns: 1fr; }
+      header h1 { font-size: 1.8rem; }
+      .presets { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>PosterAI</h1>
+      <p>AI-Powered Poster Generator</p>
+    </header>
+
+    <div class="card">
+      <h2>Choose a Style</h2>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <div class="card">
+      <h2>Details</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Person Name *</label>
+          <input type="text" id="name" placeholder="e.g. Gopal Thakur" required>
+        </div>
+        <div class="form-group">
+          <label>Event *</label>
+          <input type="text" id="event" placeholder="e.g. International Yoga Day" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="date">
+        </div>
+        <div class="form-group">
+          <label>Custom Quote</label>
+          <input type="text" id="quote" placeholder="Optional inspirational quote">
+        </div>
+      </div>
+      <div class="form-group full">
+        <label>Short Message</label>
+        <input type="text" id="shortMessage" placeholder="Optional short message">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Uploads</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Person Photo</label>
+          <div class="upload-area" id="photoArea">
+            <input type="file" id="photo" accept="image/*">
+            <div class="icon">📸</div>
+            <div class="text">Click or drag to upload</div>
+            <div class="filename" id="photoName"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Logo</label>
+          <div class="upload-area" id="logoArea">
+            <input type="file" id="logo" accept="image/*">
+            <div class="icon">🏷️</div>
+            <div class="text">Click or drag to upload</div>
+            <div class="filename" id="logoName"></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Overlay Photo (Optional)</label>
+        <div class="upload-area" id="overlayArea">
+          <input type="file" id="overlayPhoto" accept="image/*">
+          <div class="icon">🖼️</div>
+          <div class="text">Semi-transparent background overlay</div>
+          <div class="filename" id="overlayName"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-generate" id="generateBtn" onclick="generate()">
+      Generate Poster
+    </button>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Creating your poster...</p>
+      <p style="color:#aaa;font-size:0.9rem;margin-top:5px;">This may take 30-60 seconds</p>
+    </div>
+
+    <div class="error-msg" id="error">
+      <div class="friendly" id="errorText"></div>
+    </div>
+
+    <div class="result" id="result">
+      <div class="result-success" id="resultSuccess"></div>
+      <div class="result-content" id="resultContent"></div>
+      <button class="btn-new" onclick="resetForm()">Create Another Poster</button>
+    </div>
+
+    <footer>
+      PosterAI &mdash; Powered by OpenRouter AI
+    </footer>
+  </div>
+
+  <script>
+    const PRESETS = {
+      birthday: { icon: "🎂", label: "Birthday" },
+      yoga_day: { icon: "🧘", label: "Yoga Day" },
+      event_flyer: { icon: "📋", label: "Event Flyer" },
+      festival: { icon: "🎉", label: "Festival" },
+      corporate: { icon: "💼", label: "Corporate" },
+      memorial: { icon: "🕊️", label: "Memorial" },
+    };
+
+    let selectedPreset = null;
+
+    function renderPresets() {
+      const container = document.getElementById("presets");
+      Object.entries(PRESETS).forEach(([key, p]) => {
+        const btn = document.createElement("div");
+        btn.className = "preset-btn";
+        btn.dataset.preset = key;
+        btn.innerHTML = `<span class="icon">${p.icon}</span>${p.label}`;
+        btn.onclick = () => selectPreset(key);
+        container.appendChild(btn);
+      });
+    }
+
+    function selectPreset(key) {
+      document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+      if (selectedPreset === key) {
+        selectedPreset = null;
+      } else {
+        selectedPreset = key;
+        document.querySelector(`[data-preset="${key}"]`).classList.add("active");
+      }
+    }
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    document.querySelectorAll(".upload-area input").forEach(input => {
+      input.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        const area = e.target.closest(".upload-area");
+        const nameEl = area.querySelector(".filename");
+        if (file) {
+          area.classList.add("has-file");
+          nameEl.textContent = file.name;
+        } else {
+          area.classList.remove("has-file");
+          nameEl.textContent = "";
+        }
+      });
+    });
+
+    async function generate() {
+      const name = document.getElementById("name").value.trim();
+      const event = document.getElementById("event").value.trim();
+
+      if (!name || !event) {
+        showError("Please fill in at least the Person Name and Event fields.");
+        return;
+      }
+
+      const btn = document.getElementById("generateBtn");
+      btn.disabled = true;
+      document.getElementById("loading").classList.add("show");
+      document.getElementById("result").classList.remove("show");
+      document.getElementById("error").classList.remove("show");
+
+      try {
+        const body = {
+          name,
+          event,
+          date: document.getElementById("date").value || undefined,
+          quote: document.getElementById("quote").value || undefined,
+          shortMessage: document.getElementById("shortMessage").value || undefined,
+          preset: selectedPreset || undefined,
+        };
+
+        const photoFile = document.getElementById("photo").files[0];
+        const logoFile = document.getElementById("logo").files[0];
+        const overlayFile = document.getElementById("overlayPhoto").files[0];
+
+        if (photoFile) body.photo = await toBase64(photoFile);
+        if (logoFile) body.logo = await toBase64(logoFile);
+        if (overlayFile) body.overlayPhoto = await toBase64(overlayFile);
+
+        const resp = await fetch("/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        const data = await resp.json();
+
+        document.getElementById("loading").classList.remove("show");
+
+        if (!resp.ok || data.error) {
+          showError(data.friendly || "Something went wrong. Please try again.");
+          return;
+        }
+
+        document.getElementById("resultSuccess").textContent = data.friendly;
+        document.getElementById("resultContent").textContent = data.generatedContent;
+        document.getElementById("result").classList.add("show");
+      } catch (err) {
+        document.getElementById("loading").classList.remove("show");
+        showError("Network error. Please check your connection and try again.");
+      }
+
+      btn.disabled = false;
+    }
+
+    function showError(msg) {
+      document.getElementById("loading").classList.remove("show");
+      document.getElementById("errorText").textContent = msg;
+      document.getElementById("error").classList.add("show");
+    }
+
+    function resetForm() {
+      document.getElementById("result").classList.remove("show");
+      document.getElementById("error").classList.remove("show");
+      document.querySelectorAll("input:not([type=file])").forEach(i => i.value = "");
+      document.querySelectorAll(".upload-area").forEach(a => {
+        a.classList.remove("has-file");
+        a.querySelector(".filename").textContent = "";
+        a.querySelector("input").value = "";
+      });
+      selectedPreset = null;
+      document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+    }
+
+    renderPresets();
+  </script>
+</body>
+</html>

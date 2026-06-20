@@ -12,6 +12,10 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
-    "node-fetch": "^2.7.0"
+    "express-rate-limit": "^8.5.2",
+    "mongoose": "^9.7.1",
+    "multer": "^2.2.0",
+    "node-fetch": "^2.7.0",
+    "node-telegram-bot-api": "^1.1.0"
   }
 }
