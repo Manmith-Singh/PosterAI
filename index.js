@@ -201,14 +201,14 @@ function buildImagePrompt(inputs) {
   const textOverlay = inputs.mainText || `Happy ${inputs.event} - ${inputs.name}`;
   const quotePart = inputs.quote ? ` with quote: "${inputs.quote}"` : "";
 
-  return `${inputs.artStyle || "cinematic poster style"} poster for ${inputs.event}. ` +
-    `${inputs.name} ${inputs.pose || "standing confidently"}, ` +
+  return `Professional event poster. ${inputs.name} ${inputs.pose || "standing confidently"}, ` +
     `${inputs.expression || "confident expression"}, ` +
     `wearing ${inputs.clothingStyle || "formal attire"}. ` +
     `Background: ${inputs.background || "professional backdrop"}. ` +
+    `Art style: ${inputs.artStyle || "cinematic poster style"}. ` +
     `Mood: ${inputs.mood || "inspirational"}. ` +
-    `Text overlay: "${textOverlay}"${quotePart}. ` +
-    `High quality, detailed, professional design.`;
+    `Text on poster: "${textOverlay}"${quotePart}. ` +
+    `Digital art, vibrant colors, detailed illustration, high quality.`;
 }
 
 // --- Routes ---
@@ -282,72 +282,11 @@ app.post("/generate", async (req, res) => {
       quote,
     });
 
-    let imageUrl = null;
-    let generatedText = null;
+    const fullPrompt = imagePrompt + ". High quality digital art, vibrant colors, professional poster design, 4k resolution";
+    const encodedPrompt = encodeURIComponent(fullPrompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
 
-    const stabilityKey = process.env.STABILITY_API_KEY;
-
-    if (stabilityKey) {
-      const formData = new URLSearchParams();
-      formData.append("prompt", imagePrompt);
-      formData.append("output_format", "png");
-
-      const stabilityResp = await fetch(
-        "https://api.stability.ai/v2beta/stable-image/generate/sd3",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${stabilityKey}`,
-            "Accept": "image/*",
-          },
-          body: formData,
-        }
-      );
-
-      if (stabilityResp.ok) {
-        const buffer = await stabilityResp.buffer();
-        const base64 = buffer.toString("base64");
-        imageUrl = `data:image/png;base64,${base64}`;
-      } else {
-        const errText = await stabilityResp.text();
-        console.error("Stability error:", errText);
-      }
-    }
-
-    if (!imageUrl) {
-      const encodedPrompt = encodeURIComponent(imagePrompt);
-      imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
-    }
-
-    const messages = [
-      {
-        role: "user",
-        content: `Summarize this poster in 2-3 sentences: ${imagePrompt}`,
-      },
-    ];
-
-    const apiResponse = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://posterai.vercel.app",
-          "X-Title": "PosterAI",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-preview",
-          messages,
-          max_tokens: 200,
-        }),
-      }
-    );
-
-    if (apiResponse.ok) {
-      const data = await apiResponse.json();
-      generatedText = data.choices?.[0]?.message?.content;
-    }
+    const description = `AI-generated poster for ${name}'s ${event}. Style: ${artStyle || style.artStyle || "cinematic poster"}.`;
 
     if (dbConnected) {
       const saveOps = [];
@@ -386,7 +325,7 @@ app.post("/generate", async (req, res) => {
           event,
           prompt: imagePrompt,
           generatedContent: imageUrl,
-          model: stabilityKey ? "stability-ai" : "pollinations",
+          model: "pollinations",
           success: true,
           errorMessage: null,
           ip: req.ip,
@@ -405,8 +344,8 @@ app.post("/generate", async (req, res) => {
       date,
       prompt: imagePrompt,
       imageUrl,
-      description: generatedText,
-      model: stabilityKey ? "stability-ai" : "pollinations",
+      description,
+      model: "pollinations",
       preset: preset || null,
     });
   } catch (err) {
